@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Bebas+Neue&family=Cinzel:wght@700&family=Cinzel+Decorative:wght@700&family=VT323&family=Permanent+Marker&family=Righteous&family=Staatliches&family=Roboto:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #000000;
+  --color-secondary: #0F0F0F;
+  --color-accent: #E50914;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #B3B3B3;
+  
+  --font-sans: "Inter", sans-serif;
+  --font-serif: "Playfair Display", serif;
+  --font-cinzel: "Cinzel", serif;
+  --font-roboto: "Roboto", sans-serif;
+  --font-military: 'Bebas Neue', sans-serif;
+  --font-pixel: 'VT323', monospace;
+  --font-horror: 'Cinzel Decorative', serif;
+}
+
+@layer base {
+  body {
+    @apply bg-primary text-text-primary font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .military-text {
+    font-family: var(--font-military);
+    color: #FF6600;
+    text-transform: uppercase;
+    letter-spacing: -2px;
+    background: url('https://www.transparenttextures.com/patterns/carbon-fibre.png'), #FF6600;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.5));
+  }
+
+  .pixel-text {
+    font-family: var(--font-pixel);
+    color: #FFFFFF;
+    text-transform: uppercase;
+    image-rendering: pixelated;
+    font-smooth: never;
+    -webkit-font-smoothing: none;
+    text-shadow: 2px 2px 0px #000;
+  }
+
+  .horror-text {
+    font-family: var(--font-horror);
+    color: #F5F1E1;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-shadow: 3px 3px 10px rgba(0,0,0,0.8);
+    filter: contrast(1.2) brightness(0.9);
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .liquid-glass {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  .liquid-glass:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.3);
+  }
+
+  .liquid-glass-active {
+    background-color: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.4);
+    color: white;
+  }
+}
+
+/* Custom scrollbar for an elegant look */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-secondary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
