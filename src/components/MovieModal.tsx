@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { addToWatchlist, removeFromWatchlist } from '../services/watchlist';
 import { fetchTrailerVideoId } from '../services/youtube';
+import { cn } from '../lib/utils';
 
 interface MovieModalProps {
   movie: Movie | null;
@@ -19,7 +20,32 @@ export function MovieModal({ movie, onClose, startPlaying = false, isInWatchlist
   const [isPlaying, setIsPlaying] = useState(startPlaying);
   const [trailerId, setTrailerId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user, login } = useAuth();
+
+  const handleMouseMove = () => {
+    if (!isPlaying) return;
+    setControlsVisible(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, 2500);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isPlaying) {
+          setIsPlaying(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying, onClose]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -65,14 +91,12 @@ export function MovieModal({ movie, onClose, startPlaying = false, isInWatchlist
         className="fixed inset-0 z-[100] bg-[#0A0A0A] overflow-y-auto hide-scrollbar w-full"
       >
          {/* Top action buttons */}
-         {!isPlaying && (
-           <button 
-             onClick={onClose}
-             className="fixed top-6 right-8 z-[110] bg-black/60 hover:bg-white/10 hover:text-white text-white/70 rounded-full p-3 backdrop-blur-md transition-colors border border-white/10 shadow-2xl"
-           >
-             <X className="w-6 h-6" />
-           </button>
-         )}
+         <button 
+           onClick={onClose}
+           className="fixed top-6 right-8 z-[110] bg-black/60 hover:bg-white/10 hover:text-white text-white/70 rounded-full p-3 backdrop-blur-md transition-colors border border-white/10 shadow-2xl"
+         >
+           <X className="w-6 h-6" />
+         </button>
 
          {/* Hero Header Area */}
          <div className="relative w-full h-[65vh] md:h-[80vh] shrink-0 border-b border-white/5 bg-black flex flex-col justify-end group overflow-hidden">
@@ -97,31 +121,8 @@ export function MovieModal({ movie, onClose, startPlaying = false, isInWatchlist
             <div className="absolute inset-0 bg-gradient-to-r from-[#0A0A0A] via-[#0A0A0A]/70 to-transparent z-10 w-full md:w-2/3 pointer-events-none" />
             <div className="absolute inset-y-0 bottom-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/40 to-transparent z-10 h-3/4 flex mt-auto pointer-events-none" />
 
-            {/* Video Player */}
-            {isPlaying && (
-               <div className="absolute inset-0 z-[105] bg-black flex flex-col justify-center">
-                 <button 
-                   onClick={() => setIsPlaying(false)}
-                   className="absolute top-6 left-8 z-[110] bg-black/60 hover:bg-white/10 text-white rounded-full px-5 py-2.5 backdrop-blur-md transition-colors border border-white/10 shadow-2xl flex items-center gap-2 font-semibold"
-                 >
-                   <ArrowLeft className="w-5 h-5" /> Back to details
-                 </button>
-                 <iframe
-                   src={movie.type === 'tv'
-                     ? `https://www.vidking.net/embed/tv/${movie.id}/${currentSeason?.seasonNumber || 1}/${activeEpisodeId ? activeEpisodeId.split('e')[1] : 1}?color=e50914&autoPlay=true&nextEpisode=true&episodeSelector=true`
-                     : `https://www.vidking.net/embed/movie/${movie.id}?color=e50914&autoPlay=true`
-                   }
-                   className="w-full h-full lg:h-[80%] mx-auto lg:rounded-2xl border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.9)]"
-                   allowFullScreen
-                   allow="autoplay; fullscreen; encrypted-media"
-                   referrerPolicy="origin"
-                 />
-               </div>
-            )}
-
             {/* Hero Content */}
-            {!isPlaying && (
-              <div className="relative z-20 w-full mx-auto max-w-[1600px] px-6 lg:px-16 pb-12 lg:pb-20 flex flex-col md:flex-row items-end gap-10">
+            <div className="relative z-20 w-full mx-auto max-w-[1600px] px-6 lg:px-16 pb-12 lg:pb-20 flex flex-col md:flex-row items-end gap-10">
                  {/* Floating Poster */}
                  <div className="hidden md:block w-48 lg:w-64 aspect-[2/3] shrink-0 rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/20 group-hover:scale-[1.02] transition-transform duration-500">
                     <img src={movie.poster} alt={movie.title} className="w-full h-full object-cover" />
@@ -179,7 +180,6 @@ export function MovieModal({ movie, onClose, startPlaying = false, isInWatchlist
                     </div>
                  </div>
               </div>
-            )}
          </div>
 
          {/* Lower Content (Episodes for TV, more info for Movie) */}
@@ -311,6 +311,62 @@ export function MovieModal({ movie, onClose, startPlaying = false, isInWatchlist
               </div>
             )}
          </div>
+
+         {/* Fullscreen Video Player Overlay */}
+         <AnimatePresence>
+            {isPlaying && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className={cn("fixed inset-0 z-[200] bg-black flex flex-col justify-center", !controlsVisible && "cursor-none")}
+                onMouseMove={handleMouseMove}
+              >
+                  <AnimatePresence>
+                    {controlsVisible && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.2 }}
+                        className="pointer-events-none absolute inset-0 z-[210] flex flex-col"
+                      >
+                         <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black/80 to-transparent pointer-events-none" />
+                         
+                         <div className="relative z-10 w-full h-full pointer-events-none">
+                           <button 
+                             onClick={() => setIsPlaying(false)}
+                             className="absolute top-6 left-8 bg-black/60 hover:bg-white/20 hover:scale-105 active:scale-95 text-white rounded-full px-5 py-2.5 backdrop-blur-md transition-all border border-white/10 shadow-2xl flex items-center gap-2 font-semibold pointer-events-auto group"
+                           >
+                             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" /> Back to details
+                             <kbd className="hidden sm:inline-block ml-2 px-2 py-0.5 bg-white/10 rounded text-[10px] text-white/50 border border-white/10">ESC</kbd>
+                           </button>
+                           
+                          {window.self !== window.top && (
+                            <div className="absolute top-6 right-8 left-auto bg-red-500/80 backdrop-blur-md text-white text-sm px-4 py-2 rounded-xl flex items-center gap-2 border border-red-400/50 max-w-[300px] md:max-w-sm pointer-events-auto">
+                               <span className="font-bold whitespace-nowrap">⚠️ Sandbox Restriction:</span> 
+                               <span>If the player shows an error, click <b>"Open App in New Tab"</b> (top right).</span>
+                            </div>
+                          )}
+                         </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <iframe
+                    src={movie.type === 'tv'
+                      ? `https://www.vidking.net/embed/tv/${movie.id}/${currentSeason?.seasonNumber || 1}/${activeEpisodeId ? activeEpisodeId.split('e')[1] : 1}?color=e50914&autoPlay=true&nextEpisode=true&episodeSelector=true`
+                      : `https://www.vidking.net/embed/movie/${movie.id}?color=e50914&autoPlay=true`
+                    }
+                    className="w-full h-full border-none"
+                    allowFullScreen
+                    allow="autoplay; fullscreen; encrypted-media"
+                    referrerPolicy="origin"
+                  />
+              </motion.div>
+            )}
+         </AnimatePresence>
 
       </motion.div>
     </AnimatePresence>
