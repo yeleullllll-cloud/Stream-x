@@ -1,4 +1,10 @@
-export const OMDB_API_KEY = (import.meta as any).env?.VITE_OMDB_API_KEY || '7bed534b';
+export const getOMDBApiKey = () => {
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem('getOMDBApiKey()');
+    if (local) return local;
+  }
+  return (import.meta as any).env?.VITE_OMDB_API_KEY || '7bed534b';
+};
 export const OMDB_API_URL = 'https://www.omdbapi.com/';
 
 export interface OMDBMovie {
@@ -39,6 +45,36 @@ export function mapOMDBToMovie(omdb: OMDBMovie): Movie {
 
   const posterUrl = getHighQualityPoster(omdb.Poster);
   const backdropUrl = getHighQualityPoster(omdb.Poster, true);
+  
+  const isTV = omdb.Type === 'series';
+
+  let seasons = undefined;
+  if (isTV) {
+    // Generate mock seasons for TV series since OMDB doesn't return list in standard search
+    // Check both lowercase and PascalCase for OMDB json
+    let parsedSeasons = parseInt((omdb as any).totalSeasons || (omdb as any).TotalSeasons, 10);
+    const numSeasons = isNaN(parsedSeasons) ? (Math.floor(Math.random() * 5) + 5) : parsedSeasons; // Fallback to 5-9 seasons if missing
+    
+    seasons = Array.from({ length: numSeasons > 0 ? numSeasons : 1 }, (_, i) => {
+      const sNum = i + 1;
+      const numEpisodes = Math.floor(Math.random() * 8) + 12; // 12-19 episodes
+      return {
+        id: `s${sNum}`,
+        seasonNumber: sNum,
+        episodes: Array.from({ length: numEpisodes }, (_, j) => {
+          const epNum = j + 1;
+          return {
+            id: `s${sNum}e${epNum}`,
+            episodeNumber: epNum, // Added explicitly to map to UI
+            title: `Episode ${epNum}`,
+            duration: `${Math.floor(Math.random() * 20) + 40}m`,
+            poster: backdropUrl, // fallback to backdrop
+            description: `This is a placeholder description for Episode ${epNum} of Season ${sNum}. The stakes are higher than ever in this thrilling chapter of ${omdb.Title}.`
+          }
+        })
+      };
+    });
+  }
 
   return {
     id: omdb.imdbID,
@@ -47,48 +83,81 @@ export function mapOMDBToMovie(omdb: OMDBMovie): Movie {
     backdrop: backdropUrl,
     logo: posterUrl,
     description: omdb.Plot && omdb.Plot !== 'N/A' ? omdb.Plot : 'No description available.',
-    type: (omdb.Type === 'series' ? 'tv' : omdb.Type === 'movie' ? 'movie' : 'movie') as any,
+    type: (isTV ? 'tv' : omdb.Type === 'movie' ? 'movie' : 'movie') as any,
     isTrending: false,
     genre: omdb.Genre && omdb.Genre !== 'N/A' ? omdb.Genre.split(', ') : [],
     quality: 'HD',
     rating: parseFloat(omdb.imdbRating || '0') || 7.0,
-    year: parseInt(omdb.Year) || new Date().getFullYear()
+    year: parseInt(omdb.Year) || new Date().getFullYear(),
+    seasons
   };
 }
 
 export async function searchMovies(query: string, maxResults: number = 20): Promise<Movie[]> {
   if (!query) return [];
   try {
-    const fetchPage = async (page: number) => {
-      const res = await fetch(`${OMDB_API_URL}?apikey=${OMDB_API_KEY}&s=${encodeURIComponent(query)}&page=${page}`);
+    let queriesToTry = [query];
+    try {
+      const predictRes = await fetch(`/api/search/predict?q=${encodeURIComponent(query)}`);
+      if (predictRes.ok) {
+        const predictData = await predictRes.json();
+        if (predictData.titles && predictData.titles.length > 0) {
+          // Add predicted titles to our search queries (max 2 to avoid spamming OMDB)
+          predictData.titles.slice(0, 2).forEach((t: string) => {
+             if (t.toLowerCase() !== query.toLowerCase() && !queriesToTry.includes(t)) {
+                queriesToTry.push(t);
+             }
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Prediction fetch failed", e);
+    }
+
+    const fetchPage = async (page: number, q: string) => {
+      const res = await fetch(`${OMDB_API_URL}?apikey=${getOMDBApiKey()}&s=${encodeURIComponent(q)}&page=${page}`);
       return await res.json() as OMDBSearchResponse;
     };
 
-    const firstPage = await fetchPage(1);
-    let allResults = firstPage.Search || [];
-
-    // Attempt an exact title match to get the most relevant one
+    let allResults: OMDBMovie[] = [];
     let exactMatch: OMDBMovie | null = null;
-    try {
-      const exactRes = await fetch(`${OMDB_API_URL}?apikey=${OMDB_API_KEY}&t=${encodeURIComponent(query)}&plot=short`);
-      const exactData = await exactRes.json();
-      if (exactData.Response === 'True' && exactData.Poster && exactData.Poster !== 'N/A') {
-        exactMatch = exactData;
-      }
-    } catch {
-      // Ignore errors for exact match
+
+    for (const q of queriesToTry) {
+        if (allResults.length >= maxResults) break;
+
+        const firstPage = await fetchPage(1, q);
+        let currentResults = firstPage.Search || [];
+        
+        if (!exactMatch) {
+            try {
+              const exactRes = await fetch(`${OMDB_API_URL}?apikey=${getOMDBApiKey()}&t=${encodeURIComponent(q)}&plot=short`);
+              const exactData = await exactRes.json();
+              if (exactData.Response === 'True' && exactData.Poster && exactData.Poster !== 'N/A') {
+                exactMatch = exactData;
+              }
+            } catch {
+              // Ignore errors for exact match
+            }
+        }
+
+        if (firstPage.Response === 'True' && currentResults.length > 0) {
+          if (currentResults.length < maxResults && parseInt(firstPage.totalResults || '0') > 10) {
+            const secondPage = await fetchPage(2, q);
+            if (secondPage.Response === 'True' && secondPage.Search) {
+              currentResults = [...currentResults, ...secondPage.Search];
+            }
+          }
+          allResults = [...allResults, ...currentResults];
+        }
     }
 
-    if ((firstPage.Response === 'True' && allResults.length > 0) || exactMatch) {
-      if (firstPage.Response === 'True' && allResults.length < maxResults && parseInt(firstPage.totalResults || '0') > 10) {
-        const secondPage = await fetchPage(2);
-        if (secondPage.Response === 'True' && secondPage.Search) {
-          allResults = [...allResults, ...secondPage.Search];
-        }
-      }
-
+    if (allResults.length > 0 || exactMatch) {
       // Filter out items without posters and non-movie/series
-      allResults = allResults.filter(m => m.Poster !== 'N/A' && (m.Type === 'movie' || m.Type === 'series'));
+      allResults = allResults.filter(m => m && m.Poster !== 'N/A' && (m.Type === 'movie' || m.Type === 'series'));
+
+      // Remove duplicates by imdbID
+      const uniqueOMDB = Array.from(new Map(allResults.map(m => [m.imdbID, m])).values());
+      allResults = uniqueOMDB;
 
       // Put exact match at the beginning and remove duplicates
       if (exactMatch) {
@@ -103,7 +172,7 @@ export async function searchMovies(query: string, maxResults: number = 20): Prom
              return mapOMDBToMovie(movie);
           }
           try {
-            const detailRes = await fetch(`${OMDB_API_URL}?apikey=${OMDB_API_KEY}&i=${movie.imdbID}&plot=short`);
+            const detailRes = await fetch(`${OMDB_API_URL}?apikey=${getOMDBApiKey()}&i=${movie.imdbID}&plot=short`);
             if (!detailRes.ok) return mapOMDBToMovie(movie);
             const detailData: OMDBMovie = await detailRes.json();
             return mapOMDBToMovie({ ...movie, ...detailData });
@@ -143,7 +212,7 @@ export async function getCuratedMovies(imdbIDs: string[], limit: number = 15): P
 export const CURATED_LISTS = {
   trending: [
     'tt15398776', 'tt1160419', 'tt10872600', 'tt2085059', 'tt1631634', 'tt1517268', 'tt9362722', 'tt10366206', 'tt15239678', // Originals
-    'tt0499549', 'tt1630029', 'tt10857160', 'tt1115532', 'tt8111088', 'tt10676048', 'tt14230458', 'tt27802490', 'tt2356777', // Avatar, Mandalorian, etc.
+    'tt0499549', 'tt1630029', 'tt10857160', 'tt15314262', 'tt8111088', 'tt10676048', 'tt14230458', 'tt27802490', 'tt2356777', // Avatar, Mandalorian, etc.
     'tt12593682', 'tt0141842' // Bullet train, Sopranos
   ],
   topRated: [
@@ -155,14 +224,14 @@ export const CURATED_LISTS = {
     'tt1190634', 'tt0285331', 'tt0898266', 'tt2442560', 'tt3032476', 'tt0804503', 'tt1856010' // The Boys, 24, Big Bang Theory, Peaky Blinders, Better Call Saul, Mad Men, House of Cards
   ],
   anime: [
-    'tt0988824', 'tt2560140', 'tt0203259', 'tt0092067', 'tt10444120', 'tt0436904', 'tt0374030', 'tt10313888', 'tt5626028', // Originals
-    'tt1525413', 'tt2373281', 'tt0213338', 'tt3105408', 'tt9335498', 'tt4508902' // FMA Brotherhood, Sword Art, HunterxHunter, Cyberpunk, Demon Slayer
+    'tt0409591', 'tt2560140', 'tt0315465', 'tt4508902', 'tt0877057', 'tt2098220', 'tt1910272', 'tt0112159', 'tt0388629', 
+    'tt0214341', 'tt0245429', 'tt12343534', 'tt0434665', 'tt5626028' // Naruto, AOT, Demon Slayer, OPM, Death Note, HxH, Steins Gate, Evangelion, One Piece...
   ]
 };
 
 export async function getMovieDetails(imdbID: string): Promise<Movie | null> {
   try {
-    const res = await fetch(`${OMDB_API_URL}?apikey=${OMDB_API_KEY}&i=${imdbID}&plot=full`);
+    const res = await fetch(`${OMDB_API_URL}?apikey=${getOMDBApiKey()}&i=${imdbID}&plot=full`);
     const data: OMDBMovie = await res.json();
     if (data.Response === 'True') {
       return mapOMDBToMovie(data);

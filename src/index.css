@@ -15,6 +15,9 @@
   --font-military: 'Bebas Neue', sans-serif;
   --font-pixel: 'VT323', monospace;
   --font-horror: 'Cinzel Decorative', serif;
+  --font-marker: 'Permanent Marker', cursive;
+  --font-righteous: 'Righteous', cursive;
+  --font-staatliches: 'Staatliches', cursive;
 }
 
 @layer base {

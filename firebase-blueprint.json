@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user profile in the application.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique user ID provided by Firebase Auth."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The user's display name."
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "The user's profile picture URL."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "email", "createdAt"]
+    },
+    "WatchlistItem": {
+      "title": "WatchlistItem",
+      "description": "An item in the user's watchlist.",
+      "type": "object",
+      "properties": {
+        "movieId": {
+          "type": "string",
+          "description": "The ID of the movie or show from OMDB."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the movie."
+        },
+        "poster": {
+          "type": "string",
+          "description": "URL to the poster of the movie."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of content: movie, series, etc."
+        },
+        "addedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["movieId", "title", "poster", "type", "addedAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "The master collection for user profiles."
+    },
+    "users/{userId}/watchlist/{movieId}": {
+      "schema": {
+        "$ref": "#/entities/WatchlistItem"
+      },
+      "description": "The user's watchlist items."
+    }
+  }
+}
