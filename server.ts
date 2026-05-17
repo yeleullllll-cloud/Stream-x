@@ -16,12 +16,12 @@ async function startServer() {
 
   app.get("/api/youtube/trailer", async (req, res) => {
     try {
-      const { query } = req.query;
+      const { query, key } = req.query;
       if (!query || typeof query !== "string") {
         return res.status(400).json({ error: "Query is required" });
       }
 
-      const apiKey = process.env.YOUTUBE_API_KEY;
+      const apiKey = key || process.env.YOUTUBE_API_KEY;
       if (!apiKey) {
         // Fallback for demonstration if no API key is provided
         console.warn("No YOUTUBE_API_KEY provided. Using fallback trailer.");

@@ -261,11 +261,11 @@ export default function App() {
                <h3 className="text-2xl font-bold mb-4">API Configuration</h3>
                <p className="text-gray-400 mb-6 text-sm">
                  If search or movie data is not loading, the built-in API quota might have been exceeded. 
-                 You can provide your own OMDB API key for uninterrupted access.
+                 You can provide your own API keys for uninterrupted access.
                </p>
-               <div className="space-y-4">
+               <div className="space-y-6">
                  <div>
-                   <label className="block text-sm font-medium text-gray-400 mb-2">OMDB API Key</label>
+                   <label className="block text-sm font-medium text-gray-400 mb-2">OMDB API Key (For Movie Search & Info)</label>
                    <div className="flex gap-4">
                      <input 
                        type="password" 
@@ -293,6 +293,37 @@ export default function App() {
                      </button>
                    </div>
                    <p className="mt-2 text-xs text-gray-500">Get a free key at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" className="text-white hover:underline">omdbapi.com</a>.</p>
+                 </div>
+                 
+                 <div className="pt-4 border-t border-white/10">
+                   <label className="block text-sm font-medium text-gray-400 mb-2">YouTube Data API Key (For Movie Trailers)</label>
+                   <div className="flex gap-4">
+                     <input 
+                       type="password" 
+                       id="youtube-api-key"
+                       placeholder="e.g. AIzaSy..."
+                       className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white/30"
+                       defaultValue={localStorage.getItem('YOUTUBE_API_KEY') || ''}
+                     />
+                     <button 
+                       onClick={() => {
+                         const val = (document.getElementById('youtube-api-key') as HTMLInputElement).value;
+                         if (val) {
+                           localStorage.setItem('YOUTUBE_API_KEY', val);
+                           alert('YouTube API Key saved successfully! Reloading...');
+                           window.location.reload();
+                         } else {
+                           localStorage.removeItem('YOUTUBE_API_KEY');
+                           alert('YouTube API Key cleared. Reloading...');
+                           window.location.reload();
+                         }
+                       }}
+                       className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-medium transition-colors"
+                     >
+                       Save
+                     </button>
+                   </div>
+                   <p className="mt-2 text-xs text-gray-500">Get a free key from <a href="https://console.cloud.google.com/" target="_blank" className="text-white hover:underline">Google Cloud Console</a>.</p>
                  </div>
                </div>
              </div>

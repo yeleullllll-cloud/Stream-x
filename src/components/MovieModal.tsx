@@ -108,8 +108,8 @@ export function MovieModal({ movie, onClose, startPlaying = false, isInWatchlist
                  </button>
                  <iframe
                    src={movie.type === 'tv'
-                     ? `https://vidsrc.net/embed/tv?imdb=${movie.id}&season=${currentSeason?.seasonNumber || 1}&episode=${activeEpisodeId ? activeEpisodeId.replace('e', '') : 1}`
-                     : `https://vidsrc.net/embed/movie?imdb=${movie.id}`
+                     ? `https://www.vidking.net/embed/tv/${movie.id}/${currentSeason?.seasonNumber || 1}/${activeEpisodeId ? activeEpisodeId.split('e')[1] : 1}?color=e50914&autoPlay=true&nextEpisode=true&episodeSelector=true`
+                     : `https://www.vidking.net/embed/movie/${movie.id}?color=e50914&autoPlay=true`
                    }
                    className="w-full h-full lg:h-[80%] mx-auto lg:rounded-2xl border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.9)]"
                    allowFullScreen
