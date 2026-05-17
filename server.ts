@@ -25,15 +25,20 @@ async function startServer() {
       if (!apiKey) {
         // Fallback for demonstration if no API key is provided
         console.warn("No YOUTUBE_API_KEY provided. Using fallback trailer.");
-        return res.json({ videoId: "zSWdZVtXT7E" });
+        return res.json({ videoId: "aqz-KE-bpKQ" }); // Big Buck Bunny, generally embeddable
       }
 
       const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
-        query + " Official Movie Trailer"
+        query + " trailer"
       )}&maxResults=1&type=video&videoEmbeddable=true&videoDefinition=high&key=${apiKey}`;
 
       const response = await fetch(url);
       const data = await response.json();
+
+      if (data.error) {
+        console.error("YouTube API Error from Google:", data.error.message);
+        return res.status(400).json({ error: data.error.message, code: data.error.code });
+      }
 
       if (data.items && data.items.length > 0) {
         return res.json({ videoId: data.items[0].id.videoId });

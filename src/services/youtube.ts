@@ -12,6 +12,11 @@ export async function fetchTrailerVideoId(title: string): Promise<string | null>
     const url = `/api/youtube/trailer?query=${encodeURIComponent(title)}${apiKey ? `&key=${apiKey}` : ''}`;
     const res = await fetch(url);
     if (!res.ok) {
+      if (res.status === 400) {
+        const errorData = await res.json();
+        console.error("YouTube API rejected request:", errorData);
+        alert(`YouTube API Error: ${errorData.error || 'Check console'}`);
+      }
       return null;
     }
     const data = await res.json();

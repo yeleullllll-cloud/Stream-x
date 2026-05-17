@@ -1,6 +1,6 @@
 export const getOMDBApiKey = () => {
   if (typeof window !== 'undefined') {
-    const local = localStorage.getItem('getOMDBApiKey()');
+    const local = localStorage.getItem('OMDB_API_KEY');
     if (local) return local;
   }
   return (import.meta as any).env?.VITE_OMDB_API_KEY || '7bed534b';
@@ -31,7 +31,7 @@ export interface OMDBSearchResponse {
 // Convert OMDB schema to our local Movie schema
 import { type Movie } from '../types';
 
-export function mapOMDBToMovie(omdb: OMDBMovie): Movie {
+export function mapOMDBToMovie(omdb: OMDBMovie, seasonsData?: any[]): Movie {
   const getHighQualityPoster = (url: string, isBackdrop: boolean = false) => {
     if (!url || url === 'N/A') return 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=1920';
     // Split on _V1_ and append our own sizing correctly, because some have UX, CR, etc.
@@ -50,30 +50,54 @@ export function mapOMDBToMovie(omdb: OMDBMovie): Movie {
 
   let seasons = undefined;
   if (isTV) {
-    // Generate mock seasons for TV series since OMDB doesn't return list in standard search
-    // Check both lowercase and PascalCase for OMDB json
-    let parsedSeasons = parseInt((omdb as any).totalSeasons || (omdb as any).TotalSeasons, 10);
-    const numSeasons = isNaN(parsedSeasons) ? (Math.floor(Math.random() * 5) + 5) : parsedSeasons; // Fallback to 5-9 seasons if missing
-    
-    seasons = Array.from({ length: numSeasons > 0 ? numSeasons : 1 }, (_, i) => {
-      const sNum = i + 1;
-      const numEpisodes = Math.floor(Math.random() * 8) + 12; // 12-19 episodes
-      return {
-        id: `s${sNum}`,
-        seasonNumber: sNum,
-        episodes: Array.from({ length: numEpisodes }, (_, j) => {
-          const epNum = j + 1;
+    if (seasonsData && seasonsData.length > 0) {
+      // Map real real season data from OMDB API
+      seasons = seasonsData
+        .filter(s => s && s.Response === 'True' && s.Episodes && s.Episodes.length > 0)
+        .map(s => {
+          const sNum = parseInt(s.Season || '1', 10);
           return {
-            id: `s${sNum}e${epNum}`,
-            episodeNumber: epNum, // Added explicitly to map to UI
-            title: `Episode ${epNum}`,
-            duration: `${Math.floor(Math.random() * 20) + 40}m`,
-            poster: backdropUrl, // fallback to backdrop
-            description: `This is a placeholder description for Episode ${epNum} of Season ${sNum}. The stakes are higher than ever in this thrilling chapter of ${omdb.Title}.`
-          }
-        })
-      };
-    });
+            id: `s${sNum}`,
+            seasonNumber: sNum,
+            episodes: s.Episodes.map((ep: any, index: number) => {
+              const epNum = parseInt(ep.Episode || `${index + 1}`, 10);
+              const realTitle = ep.Title || `Episode ${epNum}`;
+              return {
+                id: `s${sNum}e${epNum}`,
+                episodeNumber: epNum,
+                title: realTitle,
+                duration: `${Math.floor(Math.random() * 20) + 40}m`,
+                poster: `https://image.pollinations.ai/prompt/${encodeURIComponent(`${omdb.Title} tv series season ${sNum} episode ${epNum} ${realTitle} cinematic scene`)}?width=640&height=360&nologo=true&seed=${ep.imdbID}`,
+                description: `Season ${sNum}, Episode ${epNum}: ${realTitle}. Rating: ${ep.imdbRating || 'N/A'}`
+              }
+            })
+          };
+        });
+    } else {
+      // Fallback: Generate mock seasons for TV series if details aren't passed
+      let parsedSeasons = parseInt((omdb as any).totalSeasons || (omdb as any).TotalSeasons, 10);
+      const numSeasons = isNaN(parsedSeasons) ? (Math.floor(Math.random() * 5) + 5) : parsedSeasons; // Fallback to 5-9 seasons if missing
+      
+      seasons = Array.from({ length: numSeasons > 0 ? numSeasons : 1 }, (_, i) => {
+        const sNum = i + 1;
+        const numEpisodes = Math.floor(Math.random() * 8) + 12; // 12-19 episodes
+        return {
+          id: `s${sNum}`,
+          seasonNumber: sNum,
+          episodes: Array.from({ length: numEpisodes }, (_, j) => {
+            const epNum = j + 1;
+            return {
+              id: `s${sNum}e${epNum}`,
+              episodeNumber: epNum,
+              title: `Episode ${epNum}`,
+              duration: `${Math.floor(Math.random() * 20) + 40}m`,
+              poster: `https://image.pollinations.ai/prompt/${encodeURIComponent(`${omdb.Title} tv series season ${sNum} episode ${epNum} cinematic scene`)}?width=640&height=360&nologo=true&seed=${omdb.imdbID}${sNum}${epNum}`,
+              description: `This is a placeholder description for Episode ${epNum} of Season ${sNum}. The stakes are higher than ever in this thrilling chapter of ${omdb.Title}.`
+            }
+          })
+        };
+      });
+    }
   }
 
   return {
@@ -234,7 +258,26 @@ export async function getMovieDetails(imdbID: string): Promise<Movie | null> {
     const res = await fetch(`${OMDB_API_URL}?apikey=${getOMDBApiKey()}&i=${imdbID}&plot=full`);
     const data: OMDBMovie = await res.json();
     if (data.Response === 'True') {
-      return mapOMDBToMovie(data);
+      const isTV = data.Type === 'series';
+      let seasonsData: any[] = [];
+      
+      if (isTV) {
+         let parsedSeasons = parseInt((data as any).totalSeasons || (data as any).TotalSeasons, 10);
+         const numSeasons = isNaN(parsedSeasons) ? 1 : parsedSeasons;
+         // Fetch all seasons in parallel (limited to max 10 to avoid excessive requests, though typically TV shows are fine)
+         const maxSeasons = Math.min(numSeasons, 15);
+         const seasonPromises = [];
+         for (let sNum = 1; sNum <= maxSeasons; sNum++) {
+            seasonPromises.push(
+               fetch(`${OMDB_API_URL}?apikey=${getOMDBApiKey()}&i=${imdbID}&Season=${sNum}`)
+                 .then(r => r.json())
+                 .catch(() => null)
+            );
+         }
+         seasonsData = await Promise.all(seasonPromises);
+      }
+
+      return mapOMDBToMovie(data, seasonsData);
     }
     return null;
   } catch (error) {
