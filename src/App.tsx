@@ -15,6 +15,7 @@ import { type Movie } from './types';
 import { searchMovies, getMovieDetails, getCuratedMovies, CURATED_LISTS } from './services/omdb';
 import { useAuth } from './lib/AuthContext';
 import { subscribeToWatchlist } from './services/watchlist';
+import { initialHomeMovies, initialTopRatedMovies, initialTvShows, initialAnimeList } from './services/placeholders';
 
 export default function App() {
   const { user, login, logout } = useAuth();
@@ -25,32 +26,52 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<Movie[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  const [homeMovies, setHomeMovies] = useState<Movie[]>([]);
-  const [topRated, setTopRated] = useState<Movie[]>([]);
-  const [tvShows, setTvShows] = useState<Movie[]>([]);
-  const [animeList, setAnimeList] = useState<Movie[]>([]);
+  const [homeMovies, setHomeMovies] = useState<Movie[]>(initialHomeMovies);
+  const [topRated, setTopRated] = useState<Movie[]>(initialTopRatedMovies);
+  const [tvShows, setTvShows] = useState<Movie[]>(initialTvShows);
+  const [animeList, setAnimeList] = useState<Movie[]>(initialAnimeList);
   const [myWatchlist, setMyWatchlist] = useState<Movie[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadInitialData() {
       try {
-        setIsLoading(true);
+        // Don't show loading screen, load in background
         
+        // Load from cache first if available
+        const cachedHome = sessionStorage.getItem('homeMovies');
+        const cachedTopRated = sessionStorage.getItem('topRated');
+        const cachedTV = sessionStorage.getItem('tvShows');
+        const cachedAnime = sessionStorage.getItem('animeList');
+        
+        if (cachedHome && cachedTopRated && cachedTV && cachedAnime) {
+          // Use cached data immediately
+          setHomeMovies(JSON.parse(cachedHome));
+          setTopRated(JSON.parse(cachedTopRated));
+          setTvShows(JSON.parse(cachedTV));
+          setAnimeList(JSON.parse(cachedAnime));
+        }
+        
+        // Fetch fresh data in background
         const [hRes, trRes, tRes, aRes] = await Promise.all([
-          getCuratedMovies(CURATED_LISTS.trending),
-          getCuratedMovies(CURATED_LISTS.topRated),
-          getCuratedMovies(CURATED_LISTS.series),
-          getCuratedMovies(CURATED_LISTS.anime)
+          getCuratedMovies(CURATED_LISTS.trending, 12), // Reduced from 15 to 12 for faster loading
+          getCuratedMovies(CURATED_LISTS.topRated, 10),
+          getCuratedMovies(CURATED_LISTS.series, 12),
+          getCuratedMovies(CURATED_LISTS.anime, 12)
         ]);
+        
+        // Update state with fresh data
         setHomeMovies(hRes);
         setTopRated(trRes);
         setTvShows(tRes);
         setAnimeList(aRes);
+        
+        // Cache the data
+        sessionStorage.setItem('homeMovies', JSON.stringify(hRes));
+        sessionStorage.setItem('topRated', JSON.stringify(trRes));
+        sessionStorage.setItem('tvShows', JSON.stringify(tRes));
+        sessionStorage.setItem('animeList', JSON.stringify(aRes));
       } catch (error) {
         console.error("Failed to load initial data", error);
-      } finally {
-        setIsLoading(false);
       }
     }
     loadInitialData();
@@ -112,23 +133,16 @@ export default function App() {
 
   const trendingActive = activeMovies.slice(0, 5); // Just take a few for the hero
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-black text-white">
-        <div className="w-12 h-12 border-4 border-[#E50914] border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
+  // No loading screen - instant render with progressive data loading
   return (
-    <div className="min-h-screen w-full flex flex-col bg-black text-white font-sans relative">
+    <div className="min-h-screen min-h-[-webkit-fill-available] w-full flex flex-col bg-black text-white font-sans relative overflow-x-hidden smooth-scroll">
       <Navbar activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
-      <main className="flex-1 w-full pb-10">
+      <main className="flex-1 w-full pb-10 md:pb-20">
         {(activeCategory === 'Home' || activeCategory === 'Movies' || activeCategory === 'TV' || activeCategory === 'Anime') && (
           <>
             <Hero movies={trendingActive.length > 0 ? trendingActive : activeMovies} onMovieClick={handleMovieClick} />
             
-            {activeCategory === 'Home' && (
+            {activeCategory === 'Home' && homeMovies.length > 0 && (
                <>
                  <Top10Grid movies={topRated} onMovieClick={handleMovieClick} />
                  <MovieGrid title="Trending Movies" movies={homeMovies.slice(5)} onMovieClick={handleMovieClick} />
@@ -138,20 +152,20 @@ export default function App() {
                </>
             )}
 
-            {activeCategory === 'Movies' && (
+            {activeCategory === 'Movies' && homeMovies.length > 0 && (
                <>
                  <MovieGrid title="Trending Movies" movies={homeMovies.slice(5)} onMovieClick={handleMovieClick} />
                  <MovieGrid title="Top Rated Movies" movies={topRated} onMovieClick={handleMovieClick} />
                </>
             )}
 
-            {activeCategory === 'TV' && (
+            {activeCategory === 'TV' && tvShows.length > 0 && (
                <>
                  <MovieGrid title="Popular TV Shows" movies={tvShows.slice(5)} onMovieClick={handleMovieClick} />
                </>
             )}
 
-            {activeCategory === 'Anime' && (
+            {activeCategory === 'Anime' && animeList.length > 0 && (
                <>
                  <MovieGrid title="Top Anime" movies={animeList.slice(5)} onMovieClick={handleMovieClick} />
                </>

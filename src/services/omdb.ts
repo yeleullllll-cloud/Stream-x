@@ -62,13 +62,26 @@ export function mapOMDBToMovie(omdb: OMDBMovie, seasonsData?: any[]): Movie {
             episodes: s.Episodes.map((ep: any, index: number) => {
               const epNum = parseInt(ep.Episode || `${index + 1}`, 10);
               const realTitle = ep.Title || `Episode ${epNum}`;
+              
+              // Use OMDB episode poster if available, otherwise generate AI poster based on episode title
+              let episodePoster = 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=640&h=360';
+              
+              if (ep.Poster && ep.Poster !== 'N/A') {
+                // Use actual OMDB episode poster
+                episodePoster = getHighQualityPoster(ep.Poster, true);
+              } else {
+                // Generate AI poster with episode-specific details
+                const seed = ep.imdbID || `${omdb.imdbID}-s${sNum}e${epNum}`;
+                episodePoster = `https://image.pollinations.ai/prompt/${encodeURIComponent(`${omdb.Title} ${realTitle} TV series season ${sNum} episode ${epNum} cinematic dramatic scene high quality`)}?width=1280&height=720&nologo=true&enhance=true&seed=${seed}`;
+              }
+              
               return {
                 id: `s${sNum}e${epNum}`,
                 episodeNumber: epNum,
                 title: realTitle,
-                duration: `${Math.floor(Math.random() * 20) + 40}m`,
-                poster: `https://image.pollinations.ai/prompt/${encodeURIComponent(`${omdb.Title} tv series season ${sNum} episode ${epNum} ${realTitle} cinematic scene`)}?width=640&height=360&nologo=true&seed=${ep.imdbID}`,
-                description: `Season ${sNum}, Episode ${epNum}: ${realTitle}. Rating: ${ep.imdbRating || 'N/A'}`
+                duration: ep.Runtime || `${Math.floor(Math.random() * 20) + 40}m`,
+                poster: episodePoster,
+                description: ep.Plot && ep.Plot !== 'N/A' ? ep.Plot : `Season ${sNum}, Episode ${epNum}: ${realTitle}. ${ep.imdbRating ? `Rating: ${ep.imdbRating}` : ''}`
               }
             })
           };

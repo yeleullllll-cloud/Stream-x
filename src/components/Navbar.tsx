@@ -35,48 +35,48 @@ export function Navbar({ activeCategory, onCategoryChange }: NavbarProps) {
   }, [isDropdownOpen]);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 w-full flex justify-center transition-all duration-500 ease-out ${isScrolled ? 'pt-4' : 'pt-6'}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 w-full flex justify-center transition-all duration-500 ease-out ${isScrolled ? 'pt-3 sm:pt-4' : 'pt-4 sm:pt-6'}`}>
       
       {/* Pill Navbar */}
-      <div className={`flex items-center justify-between gap-6 px-6 py-3 rounded-full transition-all duration-500 will-change-transform ${isScrolled ? 'liquid-glass scale-95 md:scale-100 shadow-[0_10px_40px_rgba(0,0,0,0.5)]' : 'bg-black/40 backdrop-blur-md border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.3)]'}`}>
+      <div className={`flex items-center justify-between gap-3 sm:gap-6 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full transition-all duration-500 will-change-transform ${isScrolled ? 'liquid-glass scale-90 sm:scale-95 md:scale-100 shadow-[0_10px_40px_rgba(0,0,0,0.5)]' : 'liquid-glass shadow-[0_4px_20px_rgba(0,0,0,0.3)]'}`}>
         
         {/* Brand Icon */}
         <button 
           onClick={() => onCategoryChange('Home')}
-          className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center shrink-0"
+          className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/10 hover:bg-white/20 transition-all hover:scale-110 active:scale-95 flex items-center justify-center shrink-0 water-ripple"
         >
-          <span className="text-lg font-bold text-white tracking-tighter">S</span>
+          <span className="text-base sm:text-lg font-bold text-white tracking-tighter">S</span>
         </button>
 
         {/* Main Links - desktop only */}
-        <nav className="hidden md:flex items-center gap-6">
+        <nav className="hidden md:flex items-center gap-4 lg:gap-6">
           <button 
             onClick={() => onCategoryChange('Home')}
-            className={`text-sm font-semibold transition-colors hover:text-white ${activeCategory === 'Home' ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/60'}`}
+            className={`text-sm font-semibold transition-all hover:text-white hover:scale-105 active:scale-95 ${activeCategory === 'Home' ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/60'}`}
           >
             Home
           </button>
           <button 
             onClick={() => onCategoryChange('Movies')}
-            className={`text-sm font-semibold transition-colors hover:text-white ${activeCategory === 'Movies' ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/60'}`}
+            className={`text-sm font-semibold transition-all hover:text-white hover:scale-105 active:scale-95 ${activeCategory === 'Movies' ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/60'}`}
           >
             Movies
           </button>
           <button 
             onClick={() => onCategoryChange('TV')}
-            className={`text-sm font-semibold transition-colors hover:text-white ${activeCategory === 'TV' ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/60'}`}
+            className={`text-sm font-semibold transition-all hover:text-white hover:scale-105 active:scale-95 ${activeCategory === 'TV' ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/60'}`}
           >
             Series
           </button>
           <button 
             onClick={() => onCategoryChange('Anime')}
-            className={`text-sm font-semibold transition-colors hover:text-white ${activeCategory === 'Anime' ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/60'}`}
+            className={`text-sm font-semibold transition-all hover:text-white hover:scale-105 active:scale-95 ${activeCategory === 'Anime' ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/60'}`}
           >
             Discover
           </button>
           <button 
             onClick={() => onCategoryChange('MyList')}
-            className={`text-sm font-semibold transition-colors hover:text-white ${activeCategory === 'MyList' ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/60'}`}
+            className={`text-sm font-semibold transition-all hover:text-white hover:scale-105 active:scale-95 ${activeCategory === 'MyList' ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/60'}`}
           >
             List
           </button>
@@ -86,14 +86,14 @@ export function Navbar({ activeCategory, onCategoryChange }: NavbarProps) {
         <div className="hidden md:block w-px h-5 bg-white/20" />
 
         {/* Icons */}
-        <div className="flex items-center gap-4 shrink-0 relative" ref={dropdownRef}>
-          <button onClick={() => onCategoryChange('Search')} className={`transition-colors hover:text-white hover:scale-110 ${activeCategory === 'Search' ? 'text-white' : 'text-white/60'}`}>
+        <div className="flex items-center gap-3 sm:gap-4 shrink-0 relative" ref={dropdownRef}>
+          <button onClick={() => onCategoryChange('Search')} className={`transition-all hover:text-white hover:scale-110 active:scale-95 ${activeCategory === 'Search' ? 'text-white' : 'text-white/60'}`}>
             <Search className="w-4 h-4" />
           </button>
           
           <button 
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`transition-colors hover:text-white text-white/60 flex items-center gap-1 overflow-hidden ${isDropdownOpen || activeCategory === 'Profile' ? 'text-white' : ''}`}
+            className={`transition-all hover:text-white text-white/60 flex items-center gap-1 overflow-hidden hover:scale-105 active:scale-95 ${isDropdownOpen || activeCategory === 'Profile' ? 'text-white' : ''}`}
           >
             {user?.photoURL ? (
               <img src={user.photoURL} alt="Profile" className="w-6 h-6 rounded-full object-cover border border-white/20 hover:scale-110 transition-transform" />
@@ -110,8 +110,8 @@ export function Navbar({ activeCategory, onCategoryChange }: NavbarProps) {
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                className="absolute top-full right-0 mt-4 w-56 bg-[#161616] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 flex flex-col"
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                className="absolute top-full right-0 mt-3 sm:mt-4 w-52 sm:w-56 glass-card rounded-2xl shadow-2xl overflow-hidden z-50 flex flex-col"
               >
                 {!user ? (
                    <div className="p-4 flex flex-col gap-3">
@@ -176,22 +176,22 @@ export function Navbar({ activeCategory, onCategoryChange }: NavbarProps) {
       </div>
 
       {/* Mobile nav (bottom fixed) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 liquid-glass border-t-0 border-b-0 border-x-0 !rounded-none py-3 px-6 flex justify-between items-center z-50">
-        <button onClick={() => onCategoryChange('Home')} className={`flex flex-col items-center gap-1 ${activeCategory === 'Home' ? 'text-white' : 'text-gray-500'}`}>
+      <div className="md:hidden fixed bottom-0 left-0 right-0 liquid-glass border-t-0 border-b-0 border-x-0 !rounded-none py-2.5 sm:py-3 px-4 sm:px-6 flex justify-between items-center z-50 safe-area-inset-bottom">
+        <button onClick={() => onCategoryChange('Home')} className={`flex flex-col items-center gap-0.5 sm:gap-1 transition-all hover:scale-105 active:scale-95 ${activeCategory === 'Home' ? 'text-white' : 'text-gray-500'}`}>
            <Home className="w-5 h-5" />
-           <span className="text-[10px] font-medium">Home</span>
+           <span className="text-[9px] sm:text-[10px] font-medium">Home</span>
         </button>
-        <button onClick={() => onCategoryChange('Movies')} className={`flex flex-col items-center gap-1 ${activeCategory === 'Movies' ? 'text-white' : 'text-gray-500'}`}>
+        <button onClick={() => onCategoryChange('Movies')} className={`flex flex-col items-center gap-0.5 sm:gap-1 transition-all hover:scale-105 active:scale-95 ${activeCategory === 'Movies' ? 'text-white' : 'text-gray-500'}`}>
            <Film className="w-5 h-5" />
-           <span className="text-[10px] font-medium">Movies</span>
+           <span className="text-[9px] sm:text-[10px] font-medium">Movies</span>
         </button>
-        <button onClick={() => onCategoryChange('TV')} className={`flex flex-col items-center gap-1 ${activeCategory === 'TV' ? 'text-white' : 'text-gray-500'}`}>
+        <button onClick={() => onCategoryChange('TV')} className={`flex flex-col items-center gap-0.5 sm:gap-1 transition-all hover:scale-105 active:scale-95 ${activeCategory === 'TV' ? 'text-white' : 'text-gray-500'}`}>
            <Tv className="w-5 h-5" />
-           <span className="text-[10px] font-medium">TV</span>
+           <span className="text-[9px] sm:text-[10px] font-medium">TV</span>
         </button>
-        <button onClick={() => onCategoryChange('MyList')} className={`flex flex-col items-center gap-1 ${activeCategory === 'MyList' ? 'text-white' : 'text-gray-500'}`}>
+        <button onClick={() => onCategoryChange('MyList')} className={`flex flex-col items-center gap-0.5 sm:gap-1 transition-all hover:scale-105 active:scale-95 ${activeCategory === 'MyList' ? 'text-white' : 'text-gray-500'}`}>
            <Bookmark className="w-5 h-5" />
-           <span className="text-[10px] font-medium">My List</span>
+           <span className="text-[9px] sm:text-[10px] font-medium">My List</span>
         </button>
       </div>
 

@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Play, Plus, Check, Youtube, Share2, ChevronDown, ArrowLeft } from 'lucide-react';
+import { X, Play, Plus, Check, ChevronDown, ChevronUp, ArrowLeft, RotateCcw, RotateCw, List } from 'lucide-react';
 import { type Movie } from '../types';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../lib/AuthContext';
 import { addToWatchlist, removeFromWatchlist } from '../services/watchlist';
 import { fetchTrailerVideoId } from '../services/youtube';
@@ -21,16 +22,37 @@ export function MovieModal({ movie, onClose, startPlaying = false, isInWatchlist
   const [trailerId, setTrailerId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [episodePanelOpen, setEpisodePanelOpen] = useState(false);
+  const [skipFeedback, setSkipFeedback] = useState<{ id: number; direction: 'forward' | 'backward' } | null>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const skipFeedbackIdRef = useRef(0);
   const { user, login } = useAuth();
 
-  const handleMouseMove = () => {
+  const handleMouseMove = useCallback(() => {
     if (!isPlaying) return;
     setControlsVisible(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     controlsTimeoutRef.current = setTimeout(() => {
       setControlsVisible(false);
-    }, 2500);
+    }, 3000);
+  }, [isPlaying]);
+
+  const triggerSkip = (direction: 'forward' | 'backward') => {
+    // Show visual feedback
+    skipFeedbackIdRef.current += 1;
+    setSkipFeedback({ id: skipFeedbackIdRef.current, direction });
+    setTimeout(() => setSkipFeedback(null), 900);
+    // Attempt postMessage seek for players that support it
+    try {
+      const seconds = direction === 'forward' ? 10 : -10;
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: 'seek', time: seconds, action: 'seekBy' }, '*'
+      );
+      iframeRef.current?.contentWindow?.postMessage(
+        { event: 'command', func: 'seekTo', args: [seconds, true] }, '*'
+      );
+    } catch (_) {}
   };
 
   useEffect(() => {
@@ -83,36 +105,41 @@ export function MovieModal({ movie, onClose, startPlaying = false, isInWatchlist
   const currentSeason = movie.seasons?.find(s => s.id === selectedSeason) || movie.seasons?.[0];
 
   return (
+    <>
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] bg-[#0A0A0A] overflow-y-auto hide-scrollbar w-full"
+        className="fixed inset-0 z-[100] bg-[#0A0A0A] overflow-y-auto smooth-scroll hide-scrollbar w-full"
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
          {/* Top action buttons */}
          <button 
            onClick={onClose}
-           className="fixed top-6 right-8 z-[110] bg-black/60 hover:bg-white/10 hover:text-white text-white/70 rounded-full p-3 backdrop-blur-md transition-colors border border-white/10 shadow-2xl"
+           className="fixed top-4 sm:top-6 right-4 sm:right-8 z-[110] liquid-glass hover:bg-white/10 hover:text-white text-white/70 rounded-full p-2.5 sm:p-3 transition-all hover:scale-105 active:scale-95 shadow-2xl"
          >
-           <X className="w-6 h-6" />
+           <X className="w-5 h-5 sm:w-6 sm:h-6" />
          </button>
 
          {/* Hero Header Area */}
-         <div className="relative w-full h-[65vh] md:h-[80vh] shrink-0 border-b border-white/5 bg-black flex flex-col justify-end group overflow-hidden">
+         <div className="relative w-full h-[60vh] sm:h-[65vh] md:h-[80vh] shrink-0 border-b border-white/5 bg-black flex flex-col justify-end group overflow-hidden">
             {/* Background Trailer or Image */}
             <div className="absolute inset-0 z-0 overflow-hidden bg-black">
                {trailerId && !isPlaying && !isMobile ? (
                   <iframe
-                     src={`https://www.youtube.com/embed/${trailerId}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${trailerId}&vq=hd1080`}
+                     src={`https://www.youtube.com/embed/${trailerId}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${trailerId}&vq=hd1080&modestbranding=1&enablejsapi=1`}
                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-60"
                      style={{ width: "100vw", height: "56.25vw", minHeight: "100%", minWidth: "177.77vh" }}
                      allow="autoplay; encrypted-media"
+                     loading="lazy"
+                     title="Movie Trailer"
                   />
                ) : (
                   <img 
                     src={movie.backdrop || movie.poster} 
                     className="absolute inset-0 w-full h-full object-cover opacity-40 blur-[20px] scale-110 saturate-150" 
+                    alt=""
                   />
                )}
             </div>
@@ -312,64 +339,272 @@ export function MovieModal({ movie, onClose, startPlaying = false, isInWatchlist
             )}
          </div>
 
-         {/* Fullscreen Video Player Overlay */}
-         <AnimatePresence>
-            {isPlaying && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className={cn("fixed inset-0 z-[200] bg-black flex flex-col justify-center", !controlsVisible && "cursor-none")}
-                onMouseMove={handleMouseMove}
-              >
-                  <AnimatePresence>
-                    {controlsVisible && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.2 }}
-                        className="pointer-events-none absolute inset-0 z-[210] flex flex-col"
-                      >
-                         <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black/80 to-transparent pointer-events-none" />
-                         
-                         <div className="relative z-10 w-full h-full pointer-events-none">
-                           <button 
-                             onClick={() => setIsPlaying(false)}
-                             className="absolute top-6 left-8 bg-black/60 hover:bg-white/20 hover:scale-105 active:scale-95 text-white rounded-full px-5 py-2.5 backdrop-blur-md transition-all border border-white/10 shadow-2xl flex items-center gap-2 font-semibold pointer-events-auto group"
-                           >
-                             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" /> Back to details
-                             <kbd className="hidden sm:inline-block ml-2 px-2 py-0.5 bg-white/10 rounded text-[10px] text-white/50 border border-white/10">ESC</kbd>
-                           </button>
-                           
-                          {window.self !== window.top && (
-                            <div className="absolute top-6 right-8 left-auto bg-red-500/80 backdrop-blur-md text-white text-sm px-4 py-2 rounded-xl flex items-center gap-2 border border-red-400/50 max-w-[300px] md:max-w-sm pointer-events-auto">
-                               <span className="font-bold whitespace-nowrap">⚠️ Sandbox Restriction:</span> 
-                               <span>If the player shows an error, click <b>"Open App in New Tab"</b> (top right).</span>
-                            </div>
-                          )}
-                         </div>
-                      </motion.div>
+    {/* ── Fullscreen Video Player (portal to body to escape z-index stacking context) ── */}
+    {isPlaying && createPortal(
+      <AnimatePresence>
+        <motion.div
+          key="player"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className={cn('fixed inset-0 bg-black overflow-hidden', !controlsVisible && !episodePanelOpen && 'cursor-none')}
+          style={{ zIndex: 99999 }}
+          onMouseMove={handleMouseMove}
+          onTouchStart={handleMouseMove}
+        >
+          {/* ── Embedded Video Player ── */}
+          {movie && (
+            <iframe
+              ref={iframeRef}
+              key={`${movie.id}-s${currentSeason?.seasonNumber}-${activeEpisodeId}`}
+              src={
+                movie.type === 'tv'
+                  ? `https://vidsrc-embed.ru/embed/tv?imdb=${movie.id}&season=${currentSeason?.seasonNumber || 1}&episode=${activeEpisodeId ? activeEpisodeId.replace(/^s\d+e/, '') : 1}&autoplay=1&autonext=1`
+                  : `https://vidsrc-embed.ru/embed/movie?imdb=${movie.id}&autoplay=1`
+              }
+              className="absolute inset-0 w-full h-full border-none"
+              style={{ zIndex: 1 }}
+              allowFullScreen
+              allow="autoplay; fullscreen; encrypted-media"
+              referrerPolicy="origin"
+            />
+          )}
+
+          {/* ── Controls Overlay ── */}
+          <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }}>
+
+            {/* TOP BAR */}
+            <AnimatePresence>
+              {(controlsVisible || episodePanelOpen) && (
+                <motion.div
+                  initial={{ opacity: 0, y: -16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute top-0 inset-x-0 h-28 bg-gradient-to-b from-black/90 via-black/40 to-transparent pointer-events-auto flex items-start gap-4 px-4 sm:px-8 pt-5"
+                >
+                  {/* Exit Button */}
+                  <button
+                    onClick={() => { setIsPlaying(false); setEpisodePanelOpen(false); }}
+                    className="flex items-center gap-2 shrink-0 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-full px-4 py-2 transition-all hover:scale-105 active:scale-95 border border-white/15 font-semibold text-sm shadow-xl"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span className="hidden sm:inline">Exit</span>
+                    <kbd className="hidden lg:inline-block px-1.5 py-0.5 bg-white/10 rounded text-[9px] text-white/40 border border-white/10">ESC</kbd>
+                  </button>
+
+                  {/* Title & Episode Info */}
+                  {movie && (
+                    <div className="flex flex-col min-w-0 mt-0.5">
+                      <span className="text-white font-bold text-sm sm:text-base truncate leading-tight">{movie.title}</span>
+                      {movie.type === 'tv' && currentSeason && activeEpisodeId && (
+                        <span className="text-white/50 text-xs mt-0.5">
+                          Season {currentSeason.seasonNumber} · Ep {activeEpisodeId.replace(/^s\d+e/, '')}
+                          {currentSeason.episodes.find(e => e.id === activeEpisodeId)?.title
+                            ? ` · ${currentSeason.episodes.find(e => e.id === activeEpisodeId)?.title}`
+                            : ''}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* CENTER — Skip Buttons */}
+            <AnimatePresence>
+              {controlsVisible && !episodePanelOpen && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute inset-0 flex items-center justify-between px-6 sm:px-14 pointer-events-none"
+                >
+                  {/* ← -10s */}
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.88 }}
+                    onClick={() => triggerSkip('backward')}
+                    className="pointer-events-auto flex flex-col items-center justify-center gap-1 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/30 hover:bg-black/55 backdrop-blur-md border border-white/10 text-white transition-colors shadow-2xl"
+                  >
+                    <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <span className="text-[9px] sm:text-[10px] font-bold leading-none">10s</span>
+                  </motion.button>
+
+                  {/* → +10s */}
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.88 }}
+                    onClick={() => triggerSkip('forward')}
+                    className="pointer-events-auto flex flex-col items-center justify-center gap-1 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/30 hover:bg-black/55 backdrop-blur-md border border-white/10 text-white transition-colors shadow-2xl"
+                  >
+                    <RotateCw className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <span className="text-[9px] sm:text-[10px] font-bold leading-none">10s</span>
+                  </motion.button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* SKIP FEEDBACK ANIMATION */}
+            <AnimatePresence>
+              {skipFeedback && (
+                <motion.div
+                  key={skipFeedback.id}
+                  initial={{ opacity: 1, scale: 0.7, y: 0 }}
+                  animate={{ opacity: 0, scale: 1.3, y: -20 }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className={cn(
+                    'absolute top-1/2 -translate-y-1/2 pointer-events-none',
+                    skipFeedback.direction === 'backward' ? 'left-16 sm:left-20' : 'right-16 sm:right-20'
+                  )}
+                >
+                  <div className="text-white text-3xl font-black drop-shadow-2xl select-none">
+                    {skipFeedback.direction === 'backward' ? '−10s' : '+10s'}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* BOTTOM BAR — Episode Panel (TV only) */}
+            {movie && movie.type === 'tv' && (
+              <AnimatePresence>
+                {(controlsVisible || episodePanelOpen) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 16 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute bottom-0 inset-x-0 pointer-events-auto"
+                  >
+                    {/* Toggle Button */}
+                    {!episodePanelOpen && (
+                      <div className="h-24 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex items-end px-4 sm:px-8 pb-5">
+                        <button
+                          onClick={() => setEpisodePanelOpen(true)}
+                          className="ml-auto flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-full px-5 py-2.5 transition-all hover:scale-105 active:scale-95 border border-white/15 font-semibold text-sm shadow-xl"
+                        >
+                          <List className="w-4 h-4" />
+                          Episodes
+                          <ChevronUp className="w-4 h-4" />
+                        </button>
+                      </div>
                     )}
-                  </AnimatePresence>
 
-                  <iframe
-                    src={movie.type === 'tv'
-                      ? `https://www.vidking.net/embed/tv/${movie.id}/${currentSeason?.seasonNumber || 1}/${activeEpisodeId ? activeEpisodeId.split('e')[1] : 1}?color=e50914&autoPlay=true&nextEpisode=true&episodeSelector=true`
-                      : `https://www.vidking.net/embed/movie/${movie.id}?color=e50914&autoPlay=true`
-                    }
-                    className="w-full h-full border-none"
-                    allowFullScreen
-                    allow="autoplay; fullscreen; encrypted-media"
-                    referrerPolicy="origin"
-                  />
-              </motion.div>
+                    {/* Episode / Season Panel */}
+                    <AnimatePresence>
+                      {episodePanelOpen && (
+                        <motion.div
+                          initial={{ y: '100%' }}
+                          animate={{ y: 0 }}
+                          exit={{ y: '100%' }}
+                          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                          className="absolute bottom-0 inset-x-0 bg-black/96 backdrop-blur-2xl border-t border-white/10 flex flex-col"
+                          style={{ maxHeight: '62vh' }}
+                        >
+                          {/* Panel Header */}
+                          <div className="flex items-center justify-between px-5 sm:px-8 py-4 border-b border-white/10 shrink-0">
+                            <div>
+                              <h3 className="text-white font-bold text-base sm:text-lg">{movie.title}</h3>
+                              <p className="text-white/40 text-xs mt-0.5">{movie.seasons?.length} Season{(movie.seasons?.length ?? 0) > 1 ? 's' : ''}</p>
+                            </div>
+                            <button
+                              onClick={() => setEpisodePanelOpen(false)}
+                              className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-white"
+                            >
+                              <ChevronDown className="w-5 h-5" />
+                            </button>
+                          </div>
+
+                          {/* Season Tabs */}
+                          <div className="flex gap-2 px-5 sm:px-8 py-3 overflow-x-auto hide-scrollbar shrink-0 border-b border-white/5">
+                            {movie.seasons?.map(s => (
+                              <button
+                                key={s.id}
+                                onClick={() => {
+                                  setSelectedSeason(s.id);
+                                  setActiveEpisodeId(s.episodes[0]?.id || null);
+                                }}
+                                className={cn(
+                                  'shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all',
+                                  selectedSeason === s.id
+                                    ? 'bg-white text-black shadow-lg'
+                                    : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'
+                                )}
+                              >
+                                Season {s.seasonNumber}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Episodes Grid */}
+                          <div className="overflow-y-auto hide-scrollbar flex-1 px-5 sm:px-8 py-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                              {currentSeason?.episodes.map(ep => {
+                                const isActive = activeEpisodeId === ep.id;
+                                const epNum = ep.episodeNumber ?? parseInt(ep.id.replace(/^s\d+e/, ''), 10);
+                                const sceneThumbnail = ep.poster && ep.poster.includes('unsplash')
+                                  ? `https://image.pollinations.ai/prompt/${encodeURIComponent(`${movie.title} season ${currentSeason.seasonNumber} episode ${epNum} ${ep.title} TV series cinematic widescreen still scene dramatic lighting`)}?width=640&height=360&nologo=true&seed=${movie.id}-s${currentSeason.seasonNumber}e${epNum}`
+                                  : ep.poster;
+
+                                return (
+                                  <button
+                                    key={ep.id}
+                                    onClick={() => {
+                                      setActiveEpisodeId(ep.id);
+                                      setEpisodePanelOpen(false);
+                                    }}
+                                    className={cn(
+                                      'relative rounded-xl overflow-hidden group text-left transition-all duration-200',
+                                      isActive ? 'ring-2 ring-white scale-[1.02] opacity-100' : 'opacity-60 hover:opacity-100 hover:scale-[1.02]'
+                                    )}
+                                  >
+                                    {/* Thumbnail */}
+                                    <div className="aspect-video bg-white/5 relative overflow-hidden">
+                                      <img
+                                        src={sceneThumbnail}
+                                        alt={ep.title}
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                        loading="lazy"
+                                        onError={e => {
+                                          (e.target as HTMLImageElement).src =
+                                            `https://image.pollinations.ai/prompt/${encodeURIComponent(`${movie.title} ${ep.title} episode ${epNum} season ${currentSeason.seasonNumber} cinematic TV scene 16:9`)}?width=640&height=360&nologo=true&seed=${ep.id}`;
+                                        }}
+                                      />
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                                        <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 backdrop-blur-sm rounded-full p-2.5 shadow-xl">
+                                          <Play className="w-4 h-4 text-white fill-current" />
+                                        </div>
+                                      </div>
+                                      {isActive && <div className="absolute bottom-0 inset-x-0 h-0.5 bg-white" />}
+                                      <div className="absolute top-2 left-2 bg-black/75 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-0.5 rounded">
+                                        EP {epNum}
+                                      </div>
+                                    </div>
+                                    <div className="px-1.5 py-2">
+                                      <p className="text-white text-[11px] font-semibold line-clamp-1 leading-tight">{ep.title}</p>
+                                      <p className="text-white/35 text-[9px] mt-0.5">{ep.duration}</p>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             )}
-         </AnimatePresence>
 
-      </motion.div>
-    </AnimatePresence>
+          </div>
+        </motion.div>
+      </AnimatePresence>,
+      document.body
+    )}
+    </>
   );
 }
 
