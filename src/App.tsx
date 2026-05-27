@@ -142,7 +142,7 @@ export default function App() {
           <>
             <Hero movies={trendingActive.length > 0 ? trendingActive : activeMovies} onMovieClick={handleMovieClick} />
             
-            {activeCategory === 'Home' && homeMovies.length > 0 && (
+            {activeCategory === 'Home' && (
                <>
                  <Top10Grid movies={topRated} onMovieClick={handleMovieClick} />
                  <MovieGrid title="Trending Movies" movies={homeMovies.slice(5)} onMovieClick={handleMovieClick} />
@@ -152,20 +152,20 @@ export default function App() {
                </>
             )}
 
-            {activeCategory === 'Movies' && homeMovies.length > 0 && (
+            {activeCategory === 'Movies' && (
                <>
                  <MovieGrid title="Trending Movies" movies={homeMovies.slice(5)} onMovieClick={handleMovieClick} />
                  <MovieGrid title="Top Rated Movies" movies={topRated} onMovieClick={handleMovieClick} />
                </>
             )}
 
-            {activeCategory === 'TV' && tvShows.length > 0 && (
+            {activeCategory === 'TV' && (
                <>
                  <MovieGrid title="Popular TV Shows" movies={tvShows.slice(5)} onMovieClick={handleMovieClick} />
                </>
             )}
 
-            {activeCategory === 'Anime' && animeList.length > 0 && (
+            {activeCategory === 'Anime' && (
                <>
                  <MovieGrid title="Top Anime" movies={animeList.slice(5)} onMovieClick={handleMovieClick} />
                </>

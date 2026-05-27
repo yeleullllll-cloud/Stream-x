@@ -48,8 +48,16 @@ export function Hero({ movies, onMovieClick }: HeroProps) {
     return () => { isMounted = false; };
   }, [currentMovie]);
 
-  if (!currentMovie) {
-    return null;
+  // If no movies, show a loading state instead of returning null
+  if (!currentMovie || heroMovies.length === 0) {
+    return (
+      <div className="relative w-full h-[75vh] min-h-[500px] sm:h-[80vh] sm:min-h-[600px] lg:h-[95vh] shrink-0 flex flex-col justify-center items-center overflow-hidden font-sans bg-black">
+        <div className="text-center z-20">
+          <div className="w-16 h-16 border-4 border-[#E50914]/20 border-t-[#E50914] rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/60 text-lg">Loading content...</p>
+        </div>
+      </div>
+    );
   }
 
   const handleNext = () => setCurrentIndex((prev) => (prev + 1) % heroMovies.length);

@@ -121,7 +121,6 @@ async function startServer() {
           'thunderbolts': 'Ht-YLmVCJXs',
           'fantastic four first steps': 'NYnQnNL_Ndk',
           'superman legacy': '1Q8fG0TtVAY',
-          'batman': 'mqqft2x_Aa4',
           'naruto': 'j2hiC9BmJlQ',
           'attack on titan': 'LHtdKWJdif4',
           'demon slayer': '6vMuWuWlW4I',
