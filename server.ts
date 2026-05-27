@@ -151,7 +151,14 @@ async function startServer() {
       )}&maxResults=1&type=video&videoEmbeddable=true&videoDefinition=high&key=${apiKey}`;
 
       const response = await fetch(url);
-      const data = await response.json();
+      const text = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("YouTube API response was not JSON:", text);
+        return res.status(502).json({ error: "Invalid response from YouTube API" });
+      }
 
       if (data.error) {
         console.error("YouTube API Error from Google:", data.error.message);
