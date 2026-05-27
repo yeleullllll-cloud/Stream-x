@@ -118,12 +118,12 @@ async function fetchDirectFromYouTube(title: string, apiKey: string): Promise<st
   }
 }
 
-export async function fetchTrailerVideoId(title: string): Promise<string | null> {
+export async function fetchTrailerVideoId(title: string, imdbId?: string): Promise<string | null> {
   const apiKey = getYouTubeApiKey();
 
   // 1. Try fetching from local backend /api first
   try {
-    const url = `/api/youtube/trailer?query=${encodeURIComponent(title)}${apiKey ? `&key=${apiKey}` : ''}`;
+    const url = `/api/youtube/trailer?query=${encodeURIComponent(title)}${imdbId ? `&imdbId=${imdbId}` : ''}${apiKey ? `&key=${apiKey}` : ''}`;
     const res = await fetch(url);
     
     // Check if the response is successful and is JSON
@@ -138,7 +138,24 @@ export async function fetchTrailerVideoId(title: string): Promise<string | null>
     console.warn("Local backend YouTube proxy is unreachable or returned error. Falling back...", error);
   }
 
-  // 2. Direct client-side YouTube API fallback
+  // 2. Direct client-side KinoCheck API fallback using IMDb ID
+  if (imdbId) {
+    try {
+      console.log(`Attempting direct client-side fetch from KinoCheck for IMDb ID: ${imdbId}...`);
+      const res = await fetch(`https://api.kinocheck.com/movies?imdb_id=${imdbId}&language=en`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.trailer && data.trailer.youtube_video_id) {
+          console.log("KinoCheck lookup succeeded client-side.");
+          return data.trailer.youtube_video_id;
+        }
+      }
+    } catch (e) {
+      console.warn("Direct KinoCheck fetch failed:", e);
+    }
+  }
+
+  // 3. Direct client-side YouTube API fallback
   if (apiKey) {
     console.log("Attempting direct client-side fetch from YouTube API...");
     const directId = await fetchDirectFromYouTube(title, apiKey);

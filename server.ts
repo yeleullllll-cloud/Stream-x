@@ -16,7 +16,24 @@ async function startServer() {
 
   app.get("/api/youtube/trailer", async (req, res) => {
     try {
-      const { query, key } = req.query;
+      const { query, key, imdbId } = req.query;
+
+      // 1. Attempt to fetch the official trailer from the original source using IMDb ID
+      if (imdbId && typeof imdbId === "string") {
+        try {
+          const kcResponse = await fetch(`https://api.kinocheck.com/movies?imdb_id=${imdbId}&language=en`);
+          if (kcResponse.ok) {
+            const kcData = await kcResponse.json();
+            if (kcData && kcData.trailer && kcData.trailer.youtube_video_id) {
+              console.log(`Successfully retrieved official trailer from KinoCheck: ${kcData.trailer.youtube_video_id}`);
+              return res.json({ videoId: kcData.trailer.youtube_video_id });
+            }
+          }
+        } catch (kcErr) {
+          console.warn("Failed to fetch from KinoCheck proxy:", kcErr);
+        }
+      }
+
       if (!query || typeof query !== "string") {
         return res.status(400).json({ error: "Query is required" });
       }

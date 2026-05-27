@@ -89,7 +89,7 @@ export function MovieModal({ movie, onClose, startPlaying = false, isInWatchlist
       setIsPlaying(startPlaying);
       
       // Fetch Trailer
-      fetchTrailerVideoId(movie.title).then(id => {
+      fetchTrailerVideoId(movie.title, movie.id).then(id => {
          setTrailerId(id);
       });
     } else {
@@ -338,6 +338,9 @@ export function MovieModal({ movie, onClose, startPlaying = false, isInWatchlist
               </div>
             )}
          </div>
+
+      </motion.div>
+    </AnimatePresence>
 
     {/* ── Fullscreen Video Player (portal to body to escape z-index stacking context) ── */}
     {isPlaying && createPortal(

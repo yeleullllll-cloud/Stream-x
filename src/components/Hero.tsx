@@ -42,7 +42,7 @@ export function Hero({ movies, onMovieClick }: HeroProps) {
     let isMounted = true;
     setTrailerId(null);
     setIsTrailerReady(false);
-    fetchTrailerVideoId(currentMovie.title).then(id => {
+    fetchTrailerVideoId(currentMovie.title, currentMovie.id).then(id => {
       if (isMounted && id) setTrailerId(id);
     });
     return () => { isMounted = false; };
