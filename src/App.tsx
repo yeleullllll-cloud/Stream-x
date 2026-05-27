@@ -260,7 +260,7 @@ export default function App() {
                </div>
              ) : (
                <div className="flex flex-col items-center justify-center bg-[#1A1A1A] rounded-2xl border border-white/10 p-8 max-w-2xl mx-auto mb-8">
-                 <h3 className="text-2xl font-bold mb-4">Sign in to StreamX</h3>
+                 <h3 className="text-2xl font-bold mb-4">Sign in to Stream X</h3>
                  <p className="text-gray-400 mb-8 text-center">Save your favorite movies and TV shows, and access your account across all devices.</p>
                  <button 
                    onClick={login}
