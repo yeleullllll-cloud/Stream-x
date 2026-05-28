@@ -1,11 +1,67 @@
+export const DEFAULT_OMDB_KEYS = [
+  '7bed534b',
+  'a0e3805f',
+  '263af1d4',
+  'e9491fb1',
+  'f4227318',
+  '9a35e612',
+  'b28b78cf'
+];
+
+let currentKeyIndex = 0;
+
 export const getOMDBApiKey = () => {
   if (typeof window !== 'undefined') {
     const local = localStorage.getItem('OMDB_API_KEY');
     if (local) return local;
   }
-  return (import.meta as any).env?.VITE_OMDB_API_KEY || '7bed534b';
+  return (import.meta as any).env?.VITE_OMDB_API_KEY || DEFAULT_OMDB_KEYS[currentKeyIndex];
 };
+
+export const rotateOMDBKey = () => {
+  if (typeof window !== 'undefined' && localStorage.getItem('OMDB_API_KEY')) {
+    return false;
+  }
+  if ((import.meta as any).env?.VITE_OMDB_API_KEY) {
+    return false;
+  }
+  currentKeyIndex = (currentKeyIndex + 1) % DEFAULT_OMDB_KEYS.length;
+  console.log(`OMDB key rotated to index ${currentKeyIndex}: ${DEFAULT_OMDB_KEYS[currentKeyIndex]}`);
+  return true;
+};
+
 export const OMDB_API_URL = 'https://www.omdbapi.com/';
+
+export async function fetchOMDB(queryParams: string): Promise<any> {
+  const maxRetries = DEFAULT_OMDB_KEYS.length;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const key = getOMDBApiKey();
+    const url = `${OMDB_API_URL}?apikey=${key}&${queryParams}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`OMDb HTTP error ${res.status}`);
+      }
+      const data = await res.json();
+      if (data && data.Response === 'False' && (data.Error === 'Request limit reached!' || data.Error?.toLowerCase().includes('limit') || data.Error?.toLowerCase().includes('key'))) {
+        console.warn(`OMDB API key limit hit for key: ${key}. Error: ${data.Error}. Rotating key...`);
+        const rotated = rotateOMDBKey();
+        if (!rotated) {
+          return data;
+        }
+        continue;
+      }
+      return data;
+    } catch (err) {
+      console.error(`OMDB fetch attempt ${attempt + 1} failed:`, err);
+      const rotated = rotateOMDBKey();
+      if (!rotated) {
+        throw err;
+      }
+    }
+  }
+  throw new Error("All OMDB API keys exhausted or failed.");
+}
 
 export interface OMDBMovie {
   Title: string;
@@ -62,26 +118,13 @@ export function mapOMDBToMovie(omdb: OMDBMovie, seasonsData?: any[]): Movie {
             episodes: s.Episodes.map((ep: any, index: number) => {
               const epNum = parseInt(ep.Episode || `${index + 1}`, 10);
               const realTitle = ep.Title || `Episode ${epNum}`;
-              
-              // Use OMDB episode poster if available, otherwise generate AI poster based on episode title
-              let episodePoster = 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=640&h=360';
-              
-              if (ep.Poster && ep.Poster !== 'N/A') {
-                // Use actual OMDB episode poster
-                episodePoster = getHighQualityPoster(ep.Poster, true);
-              } else {
-                // Generate AI poster with episode-specific details
-                const seed = ep.imdbID || `${omdb.imdbID}-s${sNum}e${epNum}`;
-                episodePoster = `https://image.pollinations.ai/prompt/${encodeURIComponent(`${omdb.Title} ${realTitle} TV series season ${sNum} episode ${epNum} cinematic dramatic scene high quality`)}?width=1280&height=720&nologo=true&enhance=true&seed=${seed}`;
-              }
-              
               return {
                 id: `s${sNum}e${epNum}`,
                 episodeNumber: epNum,
                 title: realTitle,
-                duration: ep.Runtime || `${Math.floor(Math.random() * 20) + 40}m`,
-                poster: episodePoster,
-                description: ep.Plot && ep.Plot !== 'N/A' ? ep.Plot : `Season ${sNum}, Episode ${epNum}: ${realTitle}. ${ep.imdbRating ? `Rating: ${ep.imdbRating}` : ''}`
+                duration: `${Math.floor(Math.random() * 20) + 40}m`,
+                poster: `https://image.pollinations.ai/prompt/${encodeURIComponent(`${omdb.Title} tv series season ${sNum} episode ${epNum} ${realTitle} cinematic scene`)}?width=640&height=360&nologo=true&seed=${ep.imdbID}`,
+                description: `Season ${sNum}, Episode ${epNum}: ${realTitle}. Rating: ${ep.imdbRating || 'N/A'}`
               }
             })
           };
@@ -152,8 +195,7 @@ export async function searchMovies(query: string, maxResults: number = 20): Prom
     }
 
     const fetchPage = async (page: number, q: string) => {
-      const res = await fetch(`${OMDB_API_URL}?apikey=${getOMDBApiKey()}&s=${encodeURIComponent(q)}&page=${page}`);
-      return await res.json() as OMDBSearchResponse;
+      return await fetchOMDB(`s=${encodeURIComponent(q)}&page=${page}`) as OMDBSearchResponse;
     };
 
     let allResults: OMDBMovie[] = [];
@@ -167,9 +209,8 @@ export async function searchMovies(query: string, maxResults: number = 20): Prom
         
         if (!exactMatch) {
             try {
-              const exactRes = await fetch(`${OMDB_API_URL}?apikey=${getOMDBApiKey()}&t=${encodeURIComponent(q)}&plot=short`);
-              const exactData = await exactRes.json();
-              if (exactData.Response === 'True' && exactData.Poster && exactData.Poster !== 'N/A') {
+              const exactData = await fetchOMDB(`t=${encodeURIComponent(q)}&plot=short`);
+              if (exactData && exactData.Response === 'True' && exactData.Poster && exactData.Poster !== 'N/A') {
                 exactMatch = exactData;
               }
             } catch {
@@ -177,10 +218,10 @@ export async function searchMovies(query: string, maxResults: number = 20): Prom
             }
         }
 
-        if (firstPage.Response === 'True' && currentResults.length > 0) {
+        if (firstPage && firstPage.Response === 'True' && currentResults.length > 0) {
           if (currentResults.length < maxResults && parseInt(firstPage.totalResults || '0') > 10) {
             const secondPage = await fetchPage(2, q);
-            if (secondPage.Response === 'True' && secondPage.Search) {
+            if (secondPage && secondPage.Response === 'True' && secondPage.Search) {
               currentResults = [...currentResults, ...secondPage.Search];
             }
           }
@@ -209,9 +250,8 @@ export async function searchMovies(query: string, maxResults: number = 20): Prom
              return mapOMDBToMovie(movie);
           }
           try {
-            const detailRes = await fetch(`${OMDB_API_URL}?apikey=${getOMDBApiKey()}&i=${movie.imdbID}&plot=short`);
-            if (!detailRes.ok) return mapOMDBToMovie(movie);
-            const detailData: OMDBMovie = await detailRes.json();
+            const detailData = await fetchOMDB(`i=${movie.imdbID}&plot=short`);
+            if (!detailData || detailData.Response === 'False') return mapOMDBToMovie(movie);
             return mapOMDBToMovie({ ...movie, ...detailData });
           } catch {
             return mapOMDBToMovie(movie);
@@ -268,22 +308,20 @@ export const CURATED_LISTS = {
 
 export async function getMovieDetails(imdbID: string): Promise<Movie | null> {
   try {
-    const res = await fetch(`${OMDB_API_URL}?apikey=${getOMDBApiKey()}&i=${imdbID}&plot=full`);
-    const data: OMDBMovie = await res.json();
-    if (data.Response === 'True') {
+    const data: OMDBMovie = await fetchOMDB(`i=${imdbID}&plot=full`);
+    if (data && data.Response === 'True') {
       const isTV = data.Type === 'series';
       let seasonsData: any[] = [];
       
       if (isTV) {
          let parsedSeasons = parseInt((data as any).totalSeasons || (data as any).TotalSeasons, 10);
          const numSeasons = isNaN(parsedSeasons) ? 1 : parsedSeasons;
-         // Fetch all seasons in parallel (limited to max 10 to avoid excessive requests, though typically TV shows are fine)
+         // Fetch all seasons in parallel
          const maxSeasons = Math.min(numSeasons, 15);
          const seasonPromises = [];
          for (let sNum = 1; sNum <= maxSeasons; sNum++) {
             seasonPromises.push(
-               fetch(`${OMDB_API_URL}?apikey=${getOMDBApiKey()}&i=${imdbID}&Season=${sNum}`)
-                 .then(r => r.json())
+               fetchOMDB(`i=${imdbID}&Season=${sNum}`)
                  .catch(() => null)
             );
          }

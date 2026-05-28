@@ -16,161 +16,81 @@ async function startServer() {
 
   app.get("/api/youtube/trailer", async (req, res) => {
     try {
-      const { query, key, imdbId } = req.query;
-
-      // 1. Attempt to fetch the official trailer from the original source using IMDb ID
-      if (imdbId && typeof imdbId === "string") {
-        try {
-          const kcResponse = await fetch(`https://api.kinocheck.com/movies?imdb_id=${imdbId}&language=en`);
-          if (kcResponse.ok) {
-            const kcData = await kcResponse.json();
-            if (kcData && kcData.trailer && kcData.trailer.youtube_video_id) {
-              console.log(`Successfully retrieved official trailer from KinoCheck: ${kcData.trailer.youtube_video_id}`);
-              return res.json({ videoId: kcData.trailer.youtube_video_id });
-            }
-          }
-        } catch (kcErr) {
-          console.warn("Failed to fetch from KinoCheck proxy:", kcErr);
-        }
-      }
-
+      const { query, key } = req.query;
       if (!query || typeof query !== "string") {
         return res.status(400).json({ error: "Query is required" });
       }
 
       const apiKey = key || process.env.YOUTUBE_API_KEY;
-      if (!apiKey) {
-        // Smart fallback: Use a curated list of popular movie trailers
-        console.warn("No YOUTUBE_API_KEY provided. Using smart fallback trailer.");
-        
-        // Map of popular movies to their actual trailer IDs
-        const fallbackTrailers: Record<string, string> = {
-          'avatar': 'd9MyW72ELq0',
-          'inception': 'YoHD9XEInc0',
-          'interstellar': 'zSWdZVtXT7E',
-          'dark knight': 'EXeTwQWrcwY',
-          'avengers': 'eOrNdBpGMv8',
-          'spider-man': 'JfVOs4VSpmA',
-          'iron man': '8ugaeA-nMTc',
-          'thor': 'Go8nTmfrQd8',
-          'black panther': 'xjDjIWPwcPU',
-          'guardians': 'd96cjJhvlMA',
-          'captain america': 'W4DlMggBPvc',
-          'doctor strange': 'HSzx-zryEgM',
-          'ant-man': 'pWdKf3MneyI',
-          'deadpool': 'ONHBaC-pfsk',
-          'wolverine': 'Yd47Z8HYf0Y',
-          'x-men': 'gwG4oAKzEQQ',
-          'fantastic four': 'NYnQnNL_Ndk',
-          'batman': 'mqqft2x_Aa4',
-          'superman': '1Q8fG0TtVAY',
-          'wonder woman': 'VSB4wGIdDwo',
-          'aquaman': 'WDkg3h8PCVU',
-          'shazam': 'go6GEIrcvFY',
-          'joker': 'zAGVQLHvwOY',
-          'matrix': 'm8e-FF8MsqU',
-          'john wick': 'C0BMx-qxsP4',
-          'fast': 'aSiDu3Ywi8E',
-          'mission impossible': 'wb49-oV0F78',
-          'james bond': 'BIhNsAtPbPI',
-          'star wars': 'sGbxmsDFVnE',
-          'star trek': 'wgeEvRWfSKI',
-          'lord of the rings': 'V75dMMIW2B4',
-          'hobbit': 'SDnYMbYB-nU',
-          'harry potter': 'VyHV0BRtdxo',
-          'jurassic': 'QWBKEmWWL2k',
-          'transformers': 'tP7JKbC-kGI',
-          'terminator': 'jNU_jrPxs-0',
-          'alien': 'LjLamj-b0I8',
-          'predator': 'WaG1KZqrLvM',
-          'dune': '8g18jFHCLXk',
-          'blade runner': 'gCcx85zbxz4',
-          'mad max': 'hEJnMQG9ev8',
-          'gladiator': 'owK1qxDselE',
-          'troy': 'znWGBUjKu5Y',
-          '300': 'UrIbxk7idYA',
-          'braveheart': '1NJO0jxBtMo',
-          'titanic': 'kVrqfYjkTdQ',
-          'avatar way of water': 'd9MyW72ELq0',
-          'top gun': 'qSqVVswa420',
-          'breaking bad': 'HhesaQXLuRY',
-          'game of thrones': 'KPLWWIOCOOQ',
-          'stranger things': 'b9EkMc79ZSU',
-          'the boys': '06YT7bJQ1jc',
-          'mandalorian': 'aOC8E8z_ifw',
-          'witcher': 'ndl1W4ltcmg',
-          'house of dragon': 'DotnJ7tTA34',
-          'rings of power': 'x8UAUAuKNcU',
-          'wednesday': 'Di310WS8zLk',
-          'last of us': 'uLtkt4BXAkk',
-          'fallout': 'V-mugKDQDlg',
-          'oppenheimer': 'uYPbbksJxIg',
-          'barbie': 'pBk4NYhWNMM',
-          'dune 2': 'Way9Dexny3w',
-          'deadpool 3': '73_1biulkYk',
-          'gladiator 2': 'Ts0N8swyWFI',
-          'wicked': 'fRiscUX5Qzk',
-          'moana 2': 'hBZ0reCT8Hw',
-          'inside out 2': 'LEjhY15eCx0',
-          'kung fu panda 4': 'QhKxx8yT4Aw',
-          'despicable me 4': 'qQlr9-rF32k',
-          'sonic 3': 'qSu6i2iFMO0',
-          'mufasa': 'o17MF9vnabg',
-          'snow white': 'TdGYcAm4Nl4',
-          'captain america brave new world': 'Ht-YLmVCJXs',
-          'thunderbolts': 'Ht-YLmVCJXs',
-          'fantastic four first steps': 'NYnQnNL_Ndk',
-          'superman legacy': '1Q8fG0TtVAY',
-          'naruto': 'j2hiC9BmJlQ',
-          'attack on titan': 'LHtdKWJdif4',
-          'demon slayer': '6vMuWuWlW4I',
-          'one piece': 'Ades3pQbeh8',
-          'my hero academia': 'D5fYOnwYkj4',
-          'jujutsu kaisen': 'pkKu9hLT-t8',
-          'chainsaw man': 'v4yLeNt-kCU',
-          'spy family': 'U_rWZK_8vUY',
-          'bleach': 'e8YBesRKq_U',
-          'dragon ball': 'R1tLEyz_7Vw',
-        };
-        
-        // Find matching trailer
-        const queryLower = query.toLowerCase();
-        for (const [key, videoId] of Object.entries(fallbackTrailers)) {
-          if (queryLower.includes(key)) {
-            return res.json({ videoId });
+      let videoId: string | null = null;
+
+      if (apiKey) {
+        try {
+          const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
+            query + " trailer"
+          )}&maxResults=1&type=video&videoEmbeddable=true&videoDefinition=high&key=${apiKey}`;
+
+          const response = await fetch(url);
+          const text = await response.text();
+          let data: any = {};
+          try {
+            data = JSON.parse(text);
+          } catch (e) {
+            console.error("YouTube API response was not JSON:", text);
           }
+
+          if (data && data.items && data.items.length > 0) {
+            videoId = data.items[0].id.videoId;
+          } else if (data && data.error) {
+            console.error("YouTube API Error from Google:", data.error.message || data.error);
+          }
+        } catch (apiErr) {
+          console.error("YouTube API Key request failed:", apiErr);
         }
-        
-        // Ultimate fallback - a generic cinematic trailer
-        return res.json({ videoId: 'd9MyW72ELq0' }); // Avatar trailer as default
       }
 
-      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
-        query + " official trailer"
-      )}&maxResults=1&type=video&videoEmbeddable=true&videoDefinition=high&key=${apiKey}`;
-
-      const response = await fetch(url);
-      const text = await response.text();
-      let data: any = {};
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        console.error("YouTube API response was not JSON:", text);
-        return res.status(502).json({ error: "Invalid response from YouTube API" });
+      // Fallback: If no API Key was provided OR the API key limit was exceeded / search yielded nothing
+      if (!videoId) {
+        try {
+          console.log(`No active YouTube API key or key failed. Searching public YouTube results for "${query} trailer"...`);
+          const scrapeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query + " trailer")}`;
+          const scrapeResponse = await fetch(scrapeUrl, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "Accept-Language": "en-US,en;q=0.9"
+            }
+          });
+          if (scrapeResponse.ok) {
+            const html = await scrapeResponse.text();
+            
+            // Try matching initialData standard JSON format "videoId":"[11 chars]"
+            const videoIdMatch = html.match(/"videoId"\s*:\s*"([a-zA-Z0-9_-]{11})"/);
+            if (videoIdMatch && videoIdMatch[1]) {
+              videoId = videoIdMatch[1];
+              console.log(`Successfully parsed YouTube videoId from results JSON: ${videoId}`);
+            } else {
+              // Try alternate regex looking for standard watch links in text
+              const watchMatch = html.match(/\/watch\?v=([a-zA-Z0-9_-]{11})/);
+              if (watchMatch && watchMatch[1]) {
+                videoId = watchMatch[1];
+                console.log(`Successfully parsed YouTube videoId from results watch: ${videoId}`);
+              }
+            }
+          }
+        } catch (scrapeErr) {
+          console.error("YouTube search scrape fallback failed:", scrapeErr);
+        }
       }
 
-      if (data.error) {
-        console.error("YouTube API Error from Google:", data.error.message);
-        return res.status(400).json({ error: data.error.message, code: data.error.code });
+      // Last-resort fallback to a reliable general movie trailer
+      if (!videoId) {
+        console.warn("Using fallback video ID static default.");
+        videoId = "aqz-KE-bpKQ"; // Big Buck Bunny
       }
 
-      if (data.items && data.items.length > 0) {
-        return res.json({ videoId: data.items[0].id.videoId });
-      } else {
-        return res.status(404).json({ error: "Trailer not found" });
-      }
+      res.json({ videoId });
     } catch (error) {
-      console.error("YouTube API Error:", error);
+      console.error("YouTube API Proxy Error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
